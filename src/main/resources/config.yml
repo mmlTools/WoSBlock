@@ -1,0 +1,70 @@
+storage-type: flat-file # flat-file or mysql
+
+economy:
+  starting-balance: 1000.0
+
+mysql:
+  jdbc-url: "jdbc:mysql://localhost:3306/wosblock?useSSL=false&serverTimezone=UTC"
+  username: "skyblock"
+  password: "change-me"
+  pool:
+    maximum-pool-size: 10
+    minimum-idle: 2
+    connection-timeout-ms: 10000
+
+islands:
+  world-name: world_skyblock
+  return-world: world
+  parcel-spacing: 512
+  default-radius: 75
+  default-half-size: 75
+  max-half-size: 240
+  start-y: 100
+  clear-min-y-offset: -64
+  clear-max-y-offset: 128
+  max-active-quests: 3
+  starter-chest:
+    OAK_SAPLING: 1
+    WHEAT_SEEDS: 8
+    CARROT: 2
+    POTATO: 2
+    WATER_BUCKET: 1
+    LAVA_BUCKET: 1
+    DIRT: 12
+    BREAD: 8
+    BONE_MEAL: 8
+
+npcs:
+  catch-chance: 0.25
+  eggs:
+    auctioneer:
+      display-name: "&6Auctioneer"
+      material: VILLAGER_SPAWN_EGG
+    thief:
+      display-name: "&8Thief"
+      material: WITCH_SPAWN_EGG
+    clerk:
+      display-name: "&bClerk"
+      material: VILLAGER_SPAWN_EGG
+
+auction-house:
+  blocked-materials:
+    - SPAWNER
+  price-limits:
+    EGG:
+      min-price: 5.0
+      max-price: 500.0
+    BLAZE_ROD:
+      min-price: 100.0
+      max-price: 50000.0
+    ENDER_PEARL:
+      min-price: 75.0
+      max-price: 25000.0
+
+achievements:
+  tier-values:
+    COMMON: 1
+    UNCOMMON: 3
+    RARE: 7
+    EPIC: 15
+    LEGENDARY: 40

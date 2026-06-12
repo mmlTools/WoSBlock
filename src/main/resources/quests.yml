@@ -1,0 +1,243 @@
+quests:
+  gather-dirt:
+    display-name: "Gather 16 Dirt"
+    schedule: REPEATABLE
+    type: GATHER_ITEM
+    material: DIRT
+    amount: 16
+    reward-money: 75.0
+    reward-xp: 15
+  gather-cobblestone:
+    display-name: "Gather 128 Cobblestone"
+    schedule: REPEATABLE
+    type: GATHER_ITEM
+    material: COBBLESTONE
+    amount: 128
+    reward-money: 180.0
+    reward-xp: 35
+  gather-oak-logs:
+    display-name: "Gather 32 Oak Logs"
+    schedule: DAILY
+    type: GATHER_ITEM
+    material: OAK_LOG
+    amount: 32
+    reward-money: 220.0
+    reward-xp: 40
+  gather-charcoal:
+    display-name: "Gather 16 Charcoal"
+    schedule: DAILY
+    type: GATHER_ITEM
+    material: CHARCOAL
+    amount: 16
+    reward-money: 210.0
+    reward-xp: 35
+  gather-seeds:
+    display-name: "Gather 12 Wheat Seeds"
+    schedule: REPEATABLE
+    type: GATHER_ITEM
+    material: WHEAT_SEEDS
+    amount: 12
+    reward-money: 125.0
+    reward-xp: 25
+  gather-wheat:
+    display-name: "Gather 256 Wheat"
+    schedule: WEEKLY
+    type: GATHER_ITEM
+    material: WHEAT
+    amount: 256
+    reward-money: 850.0
+    reward-xp: 150
+  gather-carrots:
+    display-name: "Gather 128 Carrots"
+    schedule: DAILY
+    type: GATHER_ITEM
+    material: CARROT
+    amount: 128
+    reward-money: 450.0
+    reward-xp: 90
+  gather-potatoes:
+    display-name: "Gather 128 Potatoes"
+    schedule: DAILY
+    type: GATHER_ITEM
+    material: POTATO
+    amount: 128
+    reward-money: 450.0
+    reward-xp: 90
+  break-cobblestone:
+    display-name: "Break 64 Cobblestone"
+    schedule: DAILY
+    type: BREAK_BLOCK
+    material: COBBLESTONE
+    amount: 64
+    reward-money: 250.0
+    reward-xp: 50
+  break-stone:
+    display-name: "Break 96 Stone"
+    schedule: DAILY
+    type: BREAK_BLOCK
+    material: STONE
+    amount: 96
+    reward-money: 300.0
+    reward-xp: 55
+  mine-coal:
+    display-name: "Mine 12 Coal Ore"
+    schedule: DAILY
+    type: BREAK_BLOCK
+    material: COAL_ORE
+    amount: 12
+    reward-money: 300.0
+    reward-xp: 60
+  mine-copper:
+    display-name: "Mine 10 Copper Ore"
+    schedule: DAILY
+    type: BREAK_BLOCK
+    material: COPPER_ORE
+    amount: 10
+    reward-money: 325.0
+    reward-xp: 65
+  mine-iron:
+    display-name: "Mine 8 Iron Ore"
+    schedule: DAILY
+    type: BREAK_BLOCK
+    material: IRON_ORE
+    amount: 8
+    reward-money: 500.0
+    reward-xp: 95
+  mine-gold:
+    display-name: "Mine 6 Gold Ore"
+    schedule: WEEKLY
+    type: BREAK_BLOCK
+    material: GOLD_ORE
+    amount: 6
+    reward-money: 900.0
+    reward-xp: 160
+  mine-lapis:
+    display-name: "Mine 10 Lapis Ore"
+    schedule: WEEKLY
+    type: BREAK_BLOCK
+    material: LAPIS_ORE
+    amount: 10
+    reward-money: 1000.0
+    reward-xp: 180
+  mine-redstone:
+    display-name: "Mine 16 Redstone Ore"
+    schedule: WEEKLY
+    type: BREAK_BLOCK
+    material: REDSTONE_ORE
+    amount: 16
+    reward-money: 1200.0
+    reward-xp: 220
+  mine-diamond:
+    display-name: "Mine 3 Diamond Ore"
+    schedule: WEEKLY
+    type: BREAK_BLOCK
+    material: DIAMOND_ORE
+    amount: 3
+    reward-money: 1800.0
+    reward-xp: 300
+  mine-emerald:
+    display-name: "Mine 2 Emerald Ore"
+    schedule: MONTHLY
+    type: BREAK_BLOCK
+    material: EMERALD_ORE
+    amount: 2
+    reward-money: 2500.0
+    reward-xp: 450
+  craft-bread:
+    display-name: "Craft 3 Bread"
+    schedule: DAILY
+    type: CRAFT_ITEM
+    material: BREAD
+    amount: 3
+    reward-money: 175.0
+    reward-xp: 35
+  craft-chest:
+    display-name: "Craft 1 Chest"
+    schedule: WEEKLY
+    type: CRAFT_ITEM
+    material: CHEST
+    amount: 1
+    reward-money: 150.0
+    reward-xp: 30
+  craft-furnace:
+    display-name: "Craft 2 Furnaces"
+    schedule: DAILY
+    type: CRAFT_ITEM
+    material: FURNACE
+    amount: 2
+    reward-money: 175.0
+    reward-xp: 35
+  craft-torches:
+    display-name: "Craft 32 Torches"
+    schedule: DAILY
+    type: CRAFT_ITEM
+    material: TORCH
+    amount: 32
+    reward-money: 225.0
+    reward-xp: 45
+  craft-barrel:
+    display-name: "Craft 2 Barrels"
+    schedule: WEEKLY
+    type: CRAFT_ITEM
+    material: BARREL
+    amount: 2
+    reward-money: 350.0
+    reward-xp: 70
+  craft-composter:
+    display-name: "Craft 1 Composter"
+    schedule: DAILY
+    type: CRAFT_ITEM
+    material: COMPOSTER
+    amount: 1
+    reward-money: 180.0
+    reward-xp: 40
+  catch-fish:
+    display-name: "Catch 10 Fish"
+    schedule: DAILY
+    type: FISH
+    material: COD
+    amount: 10
+    reward-money: 350.0
+    reward-xp: 75
+  catch-salmon:
+    display-name: "Catch 5 Salmon"
+    schedule: WEEKLY
+    type: FISH
+    material: SALMON
+    amount: 5
+    reward-money: 275.0
+    reward-xp: 55
+  catch-pufferfish:
+    display-name: "Catch 3 Pufferfish"
+    schedule: WEEKLY
+    type: FISH
+    material: PUFFERFISH
+    amount: 3
+    reward-money: 600.0
+    reward-xp: 120
+  catch-tropical-fish:
+    display-name: "Catch 3 Tropical Fish"
+    schedule: WEEKLY
+    type: FISH
+    material: TROPICAL_FISH
+    amount: 3
+    reward-money: 650.0
+    reward-xp: 130
+  catch-nautilus-shell:
+    display-name: "Catch 1 Nautilus Shell"
+    schedule: MONTHLY
+    type: FISH
+    material: NAUTILUS_SHELL
+    amount: 1
+    reward-money: 1800.0
+    reward-xp: 350
+  enderworld-egg:
+    display-name: "Return 5000 Wheat"
+    schedule: MONTHLY
+    type: GATHER_ITEM
+    material: WHEAT
+    amount: 5000
+    reward-money: 2500.0
+    reward-xp: 500
+    reward-items:
+      ENDER_WORLD_EGG: 1

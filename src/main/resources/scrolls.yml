@@ -1,0 +1,12 @@
+scrolls:
+  cobble-generator-xp:
+    xp: 1000
+    recipe:
+      BLAZE_ROD: 16
+      ENDER_PEARL: 8
+  fly:
+    duration-seconds: 1800
+  void-fall-negation:
+    duration-seconds: 3600
+  island-boundary-expander:
+    side-increase: 5

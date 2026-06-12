@@ -1,0 +1,17 @@
+custom-enchants:
+  blast-mining:
+    enabled: true
+    max-adjacent-blocks: 3
+    recipe:
+      BLAZE_ROD: 32
+      GHAST_TEAR: 4
+  auto-smelt:
+    enabled: true
+    recipe:
+      BLAZE_ROD: 8
+      COAL: 32
+  telekinesis:
+    enabled: true
+    recipe:
+      ENDER_PEARL: 16
+      LAPIS_LAZULI: 32

@@ -1,0 +1,40 @@
+# Build output
+target/
+*.class
+*.jar
+
+# Local server/plugin runtime data
+plugins/
+world/
+world_nether/
+world_the_end/
+world_skyblock/
+logs/
+crash-reports/
+server.properties
+eula.txt
+banned-ips.json
+banned-players.json
+ops.json
+usercache.json
+whitelist.json
+
+# Local config/secrets
+.env
+*.env
+site/.env
+
+# IDE/editor files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated or non-source project material
+build-instructions.md
+site/

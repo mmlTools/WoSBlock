@@ -1,0 +1,27 @@
+fishing:
+  loot:
+    common:
+      weight: 65
+      items:
+        COD: 50
+        SALMON: 35
+        PRISMARINE_SHARD: 15
+    uncommon:
+      weight: 22
+      items:
+        NAUTILUS_SHELL: 60
+        PRISMARINE_CRYSTALS: 40
+    rare:
+      weight: 9
+      items:
+        HEART_OF_THE_SEA: 50
+        BLAZE_ROD: 50
+    epic:
+      weight: 3
+      items:
+        DIAMOND: 70
+        EMERALD: 30
+    legendary:
+      weight: 1
+      items:
+        NETHER_STAR: 100

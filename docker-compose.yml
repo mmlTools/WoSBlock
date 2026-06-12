@@ -1,0 +1,22 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: wosblock-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wosblock
+      MYSQL_USER: skyblock
+      MYSQL_PASSWORD: change-me
+      MYSQL_ROOT_PASSWORD: root-change-me
+    ports:
+      - "3306:3306"
+    volumes:
+      - wosblock_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uskyblock -pchange-me --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  wosblock_mysql_data:

@@ -1,0 +1,30 @@
+name: WoSBlock
+version: '0.1.0'
+main: com.wosblock.WoSBlockPlugin
+api-version: '1.21'
+author: WoSBlock
+description: High-performance skyblock systems plugin scaffold.
+softdepend:
+  - Vault
+commands:
+  is:
+    description: WoSBlock island command.
+    usage: /is start
+  ah:
+    description: Auction House command.
+    usage: /ah sell <price>
+  hud:
+    description: Toggle or lock the SkyBlock HUD.
+    usage: /hud toggle|lock
+  questie:
+    description: Toggle or lock the Questie quest log.
+    usage: /questie toggle|lock
+  wosblock:
+    description: WoSBlock administration command.
+    usage: /wosblock help
+    aliases: [wos]
+    permission: wosblock.admin
+    permission-message: You do not have permission to use WoSBlock admin commands.
+permissions:
+  wosblock.admin:
+    default: op
