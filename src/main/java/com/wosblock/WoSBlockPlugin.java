@@ -10,13 +10,16 @@ import com.wosblock.generator.CobblestoneGeneratorManager;
 import com.wosblock.hud.HudService;
 import com.wosblock.inventory.InventoryContextService;
 import com.wosblock.island.BoundaryService;
+import com.wosblock.island.IslandData;
 import com.wosblock.island.IslandService;
 import com.wosblock.listener.CobblestoneGeneratorListener;
 import com.wosblock.listener.AutomationListener;
+import com.wosblock.listener.CustomEnchantEffectListener;
 import com.wosblock.listener.CustomFishingListener;
 import com.wosblock.listener.GuestBookListener;
 import com.wosblock.listener.GeneratorMiningXpListener;
 import com.wosblock.listener.IslandProtectionListener;
+import com.wosblock.listener.IslandRespawnListener;
 import com.wosblock.listener.IslandContextListener;
 import com.wosblock.listener.InventoryContextListener;
 import com.wosblock.listener.MarketTooltipListener;
@@ -24,6 +27,7 @@ import com.wosblock.listener.MenuClickListener;
 import com.wosblock.listener.NpcEggListener;
 import com.wosblock.listener.PlayerStatsListener;
 import com.wosblock.listener.QuestProgressListener;
+import com.wosblock.listener.ScrollEffectListener;
 import com.wosblock.listener.ScrollUseListener;
 import com.wosblock.listener.CustomEnchantListener;
 import com.wosblock.listener.TrophyListener;
@@ -43,11 +47,17 @@ import com.wosblock.storage.FlatFileStorage;
 import com.wosblock.storage.MySqlStorage;
 import com.wosblock.storage.Storage;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
@@ -125,10 +135,10 @@ public final class WoSBlockPlugin extends JavaPlugin {
         questService = new QuestService(this, balanceService, islandService, storage);
         marketInfoService = new MarketInfoService(this);
         marketTooltipService = new MarketTooltipService(this, marketInfoService);
-        menuService = new MenuService(this, balanceService, auctionHouseService, questService, marketInfoService, marketTooltipService);
         customItemKeys = new CustomItemKeys(this);
         itemFactory = new ItemFactory(this);
         scrollService = new ScrollService(this, islandService, generatorManager, customItemKeys);
+        menuService = new MenuService(this, balanceService, auctionHouseService, questService, marketInfoService, marketTooltipService, scrollService);
         customEnchantService = new CustomEnchantService(customItemKeys);
         craftingRecipeService = new CraftingRecipeService(this, scrollService, customEnchantService);
         craftingRecipeService.registerRecipes();
@@ -142,21 +152,38 @@ public final class WoSBlockPlugin extends JavaPlugin {
         boundaryService = new BoundaryService(this, islandService);
         boundaryService.start();
         inventoryContextService = new InventoryContextService(this);
+        islandService.setIslandDataCleanup(this::deleteIslandBoundPlayerData);
+    }
+
+    private CompletableFuture<Void> deleteIslandBoundPlayerData(Player player, IslandData island) {
+        UUID playerId = player.getUniqueId();
+        String worldName = island.worldName();
+        balanceService.clear(playerId, worldName);
+        questService.clear(playerId);
+        voidRecoveryService.clear(playerId);
+        return CompletableFuture.allOf(
+            storage.deleteIslandPlayerData(playerId, worldName),
+            inventoryContextService.deleteContext(playerId, worldName),
+            auctionHouseService.deleteSellerListings(playerId)
+        );
     }
 
     private void registerListeners() {
         getServer().getPluginManager().registerEvents(new CobblestoneGeneratorListener(generatorManager, islandService), this);
         getServer().getPluginManager().registerEvents(new GeneratorMiningXpListener(generatorManager, islandService), this);
         getServer().getPluginManager().registerEvents(new NpcEggListener(this, npcManager, islandService, menuService), this);
-        getServer().getPluginManager().registerEvents(new CustomFishingListener(fishingLootManager, islandService), this);
+        getServer().getPluginManager().registerEvents(new CustomFishingListener(fishingLootManager, islandService, scrollService), this);
         getServer().getPluginManager().registerEvents(new IslandProtectionListener(islandService), this);
+        getServer().getPluginManager().registerEvents(new IslandRespawnListener(islandService), this);
         getServer().getPluginManager().registerEvents(new GuestBookListener(islandService, voidRecoveryService), this);
         getServer().getPluginManager().registerEvents(new MenuClickListener(menuService), this);
         getServer().getPluginManager().registerEvents(new QuestProgressListener(questService, islandService), this);
         getServer().getPluginManager().registerEvents(new ScrollUseListener(scrollService), this);
-        getServer().getPluginManager().registerEvents(new CustomEnchantListener(customEnchantService), this);
+        getServer().getPluginManager().registerEvents(new ScrollEffectListener(scrollService, islandService), this);
+        getServer().getPluginManager().registerEvents(new CustomEnchantListener(this, customEnchantService), this);
+        getServer().getPluginManager().registerEvents(new CustomEnchantEffectListener(this, customEnchantService, islandService), this);
         getServer().getPluginManager().registerEvents(new TrophyListener(trophyService, islandService), this);
-        getServer().getPluginManager().registerEvents(new AutomationListener(compactorService, hopperFilterService, islandService), this);
+        getServer().getPluginManager().registerEvents(new AutomationListener(this, compactorService, hopperFilterService, islandService), this);
         getServer().getPluginManager().registerEvents(new VoidFallListener(islandService, scrollService), this);
         getServer().getPluginManager().registerEvents(new MarketTooltipListener(this, islandService, marketTooltipService), this);
         getServer().getPluginManager().registerEvents(new InventoryContextListener(inventoryContextService), this);
@@ -194,11 +221,16 @@ public final class WoSBlockPlugin extends JavaPlugin {
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
             sender.sendMessage("WoSBlock admin commands:");
             sender.sendMessage("/" + label + " reload");
+            sender.sendMessage("/" + label + " listcustom");
             sender.sendMessage("/" + label + " givescroll <id> [amount]");
             sender.sendMessage("/" + label + " giveenchant <id> [amount]");
             sender.sendMessage("/" + label + " givetrophy <tier>");
             sender.sendMessage("/" + label + " giveenderworldegg [amount]");
             return true;
+        }
+
+        if (args.length == 1 && args[0].equalsIgnoreCase("listcustom")) {
+            return listCustomItems(sender, label);
         }
 
         if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
@@ -246,8 +278,29 @@ public final class WoSBlockPlugin extends JavaPlugin {
             player.sendMessage("Given EnderWorld Egg x" + amount + ".");
             return true;
         }
-        sender.sendMessage("Usage: /" + label + " reload|givescroll <id> [amount]|giveenchant <id> [amount]|givetrophy <tier>|giveenderworldegg [amount]");
+        sender.sendMessage("Usage: /" + label + " reload|listcustom|givescroll <id> [amount]|giveenchant <id> [amount]|givetrophy <tier>|giveenderworldegg [amount]");
         return true;
+    }
+
+    private boolean listCustomItems(CommandSender sender, String label) {
+        List<String> scrollIds = sectionKeys("scrolls.yml", "scrolls");
+        List<String> enchantIds = sectionKeys("enchants.yml", "custom-enchants");
+        sender.sendMessage("WoSBlock custom item IDs:");
+        sender.sendMessage("Scrolls: " + (scrollIds.isEmpty() ? "(none)" : String.join(", ", scrollIds)));
+        sender.sendMessage("Give scroll: /" + label + " givescroll <id> [amount]");
+        sender.sendMessage("Custom enchants: " + (enchantIds.isEmpty() ? "(none)" : String.join(", ", enchantIds)));
+        sender.sendMessage("Give enchant: /" + label + " giveenchant <id> [amount]");
+        return true;
+    }
+
+    private List<String> sectionKeys(String fileName, String path) {
+        ConfigurationSection section = extraConfig(fileName).getConfigurationSection(path);
+        if (section == null) {
+            return List.of();
+        }
+        List<String> keys = new ArrayList<>(section.getKeys(false));
+        Collections.sort(keys);
+        return keys;
     }
 
     private boolean handleIslandCommand(CommandSender sender, String label, String[] args) {
@@ -276,6 +329,11 @@ public final class WoSBlockPlugin extends JavaPlugin {
 
         if (args.length == 1 && args[0].equalsIgnoreCase("clear")) {
             islandService.clearIsland(player);
+            return true;
+        }
+
+        if (args.length == 1 && args[0].equalsIgnoreCase("rebuild")) {
+            islandService.rebuildIsland(player);
             return true;
         }
 
@@ -350,7 +408,7 @@ public final class WoSBlockPlugin extends JavaPlugin {
             return true;
         }
 
-        player.sendMessage("Usage: /" + label + " start|home|leave|clear|settings|trust <player>|balance|compact|setwaypoint <1-3>|waypoint <1-3>");
+        player.sendMessage("Usage: /" + label + " start|home|leave|clear|rebuild|settings|trust <player>|balance|compact|setwaypoint <1-3>|waypoint <1-3>");
         return true;
     }
 
@@ -382,14 +440,13 @@ public final class WoSBlockPlugin extends JavaPlugin {
             return true;
         }
         if (args.length == 1 && args[0].equalsIgnoreCase("toggle")) {
-            player.sendMessage("HUD " + (hudService.toggleHud(player) ? "shown." : "hidden."));
+            boolean shown = hudService.toggleHud(player);
+            player.sendMessage(shown && !hudService.canDisplay(player)
+                ? "HUD enabled. It will show when you are on an island."
+                : "HUD " + (shown ? "shown." : "hidden."));
             return true;
         }
-        if (args.length == 1 && args[0].equalsIgnoreCase("lock")) {
-            player.sendMessage("HUD " + (hudService.toggleHudLock(player) ? "locked." : "unlocked."));
-            return true;
-        }
-        player.sendMessage("Usage: /" + label + " toggle|lock");
+        player.sendMessage("Usage: /" + label + " toggle");
         return true;
     }
 
@@ -399,14 +456,13 @@ public final class WoSBlockPlugin extends JavaPlugin {
             return true;
         }
         if (args.length == 1 && args[0].equalsIgnoreCase("toggle")) {
-            player.sendMessage("Questie " + (hudService.toggleQuestie(player) ? "shown." : "hidden."));
+            boolean shown = hudService.toggleQuestie(player);
+            player.sendMessage(shown && !hudService.canDisplay(player)
+                ? "Questie enabled. It will show when you are on an island."
+                : "Questie " + (shown ? "shown." : "hidden."));
             return true;
         }
-        if (args.length == 1 && args[0].equalsIgnoreCase("lock")) {
-            player.sendMessage("Questie " + (hudService.toggleQuestieLock(player) ? "locked." : "unlocked."));
-            return true;
-        }
-        player.sendMessage("Usage: /" + label + " toggle|lock");
+        player.sendMessage("Usage: /" + label + " toggle");
         return true;
     }
 

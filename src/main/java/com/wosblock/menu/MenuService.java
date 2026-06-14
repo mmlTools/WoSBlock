@@ -7,6 +7,7 @@ import com.wosblock.economy.BalanceService;
 import com.wosblock.market.MarketInfoService;
 import com.wosblock.market.MarketInfoService.BlackMarketOffer;
 import com.wosblock.market.MarketTooltipService;
+import com.wosblock.item.ScrollService;
 import com.wosblock.quest.QuestService;
 import com.wosblock.util.Text;
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -32,19 +34,22 @@ public final class MenuService {
     private final QuestService questService;
     private final MarketInfoService marketInfoService;
     private final MarketTooltipService marketTooltipService;
+    private final ScrollService scrollService;
     private final Map<Integer, UUID> visibleAuctionSlots = new HashMap<>();
     private final Map<UUID, Map<Integer, String>> visibleQuestSlots = new HashMap<>();
     private final Map<UUID, Integer> questPages = new HashMap<>();
     private final Map<Integer, BlackMarketOffer> visibleBlackMarketSlots = new HashMap<>();
 
     public MenuService(WoSBlockPlugin plugin, BalanceService balanceService, AuctionHouseService auctionHouseService,
-                       QuestService questService, MarketInfoService marketInfoService, MarketTooltipService marketTooltipService) {
+                       QuestService questService, MarketInfoService marketInfoService, MarketTooltipService marketTooltipService,
+                       ScrollService scrollService) {
         this.plugin = plugin;
         this.balanceService = balanceService;
         this.auctionHouseService = auctionHouseService;
         this.questService = questService;
         this.marketInfoService = marketInfoService;
         this.marketTooltipService = marketTooltipService;
+        this.scrollService = scrollService;
     }
 
     public void openNpcMenu(Player player, String npcType) {
@@ -66,7 +71,8 @@ public final class MenuService {
             }
             ItemStack display = listing.item().clone();
             ItemMeta meta = display.getItemMeta();
-            meta.lore(Text.lore("Seller: " + listing.sellerName(), "Price: " + listing.price() + " coins", "Click to buy"));
+            String action = listing.sellerId().equals(player.getUniqueId()) ? "Left-click to cancel" : "Click to buy";
+            meta.lore(Text.lore("Seller: " + listing.sellerName(), "Price: " + listing.price() + " coins", action));
             display.setItemMeta(meta);
             inventory.setItem(slot, display);
             visibleAuctionSlots.put(slot, listing.id());
@@ -127,11 +133,17 @@ public final class MenuService {
         player.openInventory(inventory);
     }
 
-    public boolean handleClick(Player player, String title, int slot, ItemStack clicked) {
+    public boolean handleClick(Player player, String title, int slot, ItemStack clicked, ClickType click) {
         if (title.equals(AUCTION_TITLE)) {
             UUID listingId = visibleAuctionSlots.get(slot);
             if (listingId != null) {
-                auctionHouseService.buy(player, listingId);
+                auctionHouseService.listing(listingId).ifPresentOrElse(listing -> {
+                    if (listing.sellerId().equals(player.getUniqueId()) && click == ClickType.LEFT) {
+                        auctionHouseService.cancel(player, listingId);
+                    } else {
+                        auctionHouseService.buy(player, listingId);
+                    }
+                }, () -> player.sendMessage("That listing is no longer available."));
                 openAuctioneer(player);
             }
             return true;
@@ -168,7 +180,8 @@ public final class MenuService {
         if (offer == null) {
             return;
         }
-        if (!balanceService.withdraw(player, offer.price())) {
+        double price = offer.price() * scrollService.merchantDiscountMultiplier(player);
+        if (!balanceService.withdraw(player, price)) {
             player.sendMessage("You do not have enough coins.");
             return;
         }
@@ -176,7 +189,7 @@ public final class MenuService {
         player.getInventory().addItem(purchased).values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
         marketTooltipService.apply(player);
         player.updateInventory();
-        player.sendMessage("Bought " + offer.id() + " for " + offer.price() + " coins.");
+        player.sendMessage("Bought " + offer.id() + " for " + price + " coins.");
     }
 
     private ItemStack named(Material material, String name) {

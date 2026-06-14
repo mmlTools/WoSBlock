@@ -14,11 +14,11 @@ commands:
     description: Auction House command.
     usage: /ah sell <price>
   hud:
-    description: Toggle or lock the SkyBlock HUD.
-    usage: /hud toggle|lock
+    description: Toggle the SkyBlock HUD.
+    usage: /hud toggle
   questie:
-    description: Toggle or lock the Questie quest log.
-    usage: /questie toggle|lock
+    description: Toggle the Questie quest log.
+    usage: /questie toggle
   wosblock:
     description: WoSBlock administration command.
     usage: /wosblock help

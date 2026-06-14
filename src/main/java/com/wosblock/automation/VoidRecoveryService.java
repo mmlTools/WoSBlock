@@ -41,6 +41,10 @@ public final class VoidRecoveryService {
         return cache.getOrDefault(island.ownerId(), List.of()).size();
     }
 
+    public void clear(UUID ownerId) {
+        cache.remove(ownerId);
+    }
+
     private void scan() {
         for (World world : Bukkit.getWorlds()) {
             int threshold = world.getMinHeight() + 8;

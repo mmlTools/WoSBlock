@@ -4,30 +4,35 @@ import com.wosblock.WoSBlockPlugin;
 import com.wosblock.auction.AuctionListing;
 import com.wosblock.island.IslandData;
 import com.wosblock.island.VisitMode;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.bukkit.scheduler.BukkitRunnable;
 
 public final class MySqlStorage implements Storage {
+    private static final String MIGRATION_INDEX = "db/migrations/index.txt";
+
     private final WoSBlockPlugin plugin;
     private final HikariDataSource dataSource;
     private final CompletableFuture<Void> ready;
@@ -35,103 +40,132 @@ public final class MySqlStorage implements Storage {
     public MySqlStorage(WoSBlockPlugin plugin) {
         this.plugin = plugin;
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(plugin.getConfig().getString("mysql.jdbc-url"));
+        config.setJdbcUrl(jdbcUrl());
         config.setUsername(plugin.getConfig().getString("mysql.username"));
         config.setPassword(plugin.getConfig().getString("mysql.password"));
         config.setMaximumPoolSize(plugin.getConfig().getInt("mysql.pool.maximum-pool-size", 10));
         config.setMinimumIdle(plugin.getConfig().getInt("mysql.pool.minimum-idle", 2));
         config.setConnectionTimeout(plugin.getConfig().getLong("mysql.pool.connection-timeout-ms", 10000));
         dataSource = new HikariDataSource(config);
-        ready = createTables();
+        ready = runMigrations();
     }
 
-    private CompletableFuture<Void> createTables() {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                try (Connection connection = dataSource.getConnection()) {
-                    try (PreparedStatement statement = connection.prepareStatement("""
-                         CREATE TABLE IF NOT EXISTS wos_islands (
-                           owner_id CHAR(36) PRIMARY KEY,
-                           world_name VARCHAR(64) NOT NULL,
-                           parcel_index INT NOT NULL,
-                           center_x INT NOT NULL,
-                           center_y INT NOT NULL,
-                           center_z INT NOT NULL,
-                           radius INT NOT NULL,
-                           expand_north INT NOT NULL,
-                           expand_south INT NOT NULL,
-                           expand_east INT NOT NULL,
-                           expand_west INT NOT NULL,
-                           visit_mode VARCHAR(24) NOT NULL,
-                           generator_level INT NOT NULL,
-                           generator_xp BIGINT NOT NULL,
-                           achievement_level INT NOT NULL,
-                           waypoints TEXT NOT NULL,
-                           trusted_members TEXT NOT NULL
-                         )
-                         """)) {
-                        statement.executeUpdate();
+    private String jdbcUrl() {
+        String url = plugin.getConfig().getString("mysql.jdbc-url", "jdbc:mysql://localhost:3306/wosblock?useSSL=false&serverTimezone=UTC");
+        String database = plugin.getConfig().getString("mysql.database", "").trim();
+        if (database.isEmpty()) {
+            return url;
+        }
+
+        int schemeEnd = url.indexOf("://");
+        int pathStart = schemeEnd < 0 ? -1 : url.indexOf('/', schemeEnd + 3);
+        if (pathStart < 0) {
+            return url + "/" + database;
+        }
+
+        int queryStart = url.indexOf('?', pathStart);
+        if (queryStart < 0) {
+            return url.substring(0, pathStart + 1) + database;
+        }
+        return url.substring(0, pathStart + 1) + database + url.substring(queryStart);
+    }
+
+    private CompletableFuture<Void> runMigrations() {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                ensureMigrationTable(connection);
+                Set<String> applied = appliedMigrations(connection);
+                for (String migration : migrationIndex()) {
+                    if (applied.contains(migration)) {
+                        continue;
                     }
-                    try (PreparedStatement statement = connection.prepareStatement("""
-                         CREATE TABLE IF NOT EXISTS wos_balances (
-                           player_id CHAR(36) NOT NULL,
-                           world_name VARCHAR(64) NOT NULL,
-                           balance DOUBLE NOT NULL,
-                           PRIMARY KEY (player_id, world_name)
-                         )
-                         """)) {
-                        statement.executeUpdate();
+                    executeMigration(connection, migration);
+                    recordMigration(connection, migration);
+                    plugin.getLogger().info("Applied MySQL migration " + migration);
+                }
+                connection.commit();
+            } catch (SQLException | IOException | RuntimeException ex) {
+                connection.rollback();
+                throw ex;
+            }
+            plugin.getLogger().info("MySQL migrations ready.");
+            return CompletableFuture.completedFuture(null);
+        } catch (SQLException | IOException ex) {
+            plugin.getLogger().severe("Could not run MySQL migrations: " + ex.getMessage());
+            return CompletableFuture.failedFuture(ex);
+        }
+    }
+
+    private void ensureMigrationTable(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+             CREATE TABLE IF NOT EXISTS wos_schema_migrations (
+               migration_id VARCHAR(191) PRIMARY KEY,
+               applied_at BIGINT NOT NULL
+             )
+             """)) {
+            statement.executeUpdate();
+        }
+    }
+
+    private Set<String> appliedMigrations(Connection connection) throws SQLException {
+        Set<String> applied = new HashSet<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT migration_id FROM wos_schema_migrations");
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                applied.add(result.getString("migration_id"));
+            }
+        }
+        return applied;
+    }
+
+    private List<String> migrationIndex() throws IOException {
+        try (InputStream stream = plugin.getResource(MIGRATION_INDEX)) {
+            if (stream == null) {
+                throw new IOException("Missing migration index: " + MIGRATION_INDEX);
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                return reader.lines()
+                    .map(String::trim)
+                    .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                    .toList();
+            }
+        }
+    }
+
+    private void executeMigration(Connection connection, String migration) throws SQLException, IOException {
+        String path = "db/migrations/" + migration;
+        try (InputStream stream = plugin.getResource(path)) {
+            if (stream == null) {
+                throw new IOException("Missing migration file: " + path);
+            }
+            String sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            try (Statement statement = connection.createStatement()) {
+                for (String command : sql.split(";")) {
+                    String trimmed = command.trim();
+                    if (!trimmed.isEmpty()) {
+                        statement.execute(trimmed);
                     }
-                    try (PreparedStatement statement = connection.prepareStatement("""
-                         CREATE TABLE IF NOT EXISTS wos_quest_completions (
-                           player_id CHAR(36) NOT NULL,
-                           quest_id VARCHAR(128) NOT NULL,
-                           completed_at BIGINT NOT NULL,
-                           PRIMARY KEY (player_id, quest_id)
-                         )
-                         """)) {
-                        statement.executeUpdate();
-                    }
-                    try (PreparedStatement statement = connection.prepareStatement("""
-                         CREATE TABLE IF NOT EXISTS wos_quest_progress (
-                           player_id CHAR(36) NOT NULL,
-                           quest_id VARCHAR(128) NOT NULL,
-                           progress INT NOT NULL,
-                           PRIMARY KEY (player_id, quest_id)
-                         )
-                         """)) {
-                        statement.executeUpdate();
-                    }
-                    try (PreparedStatement statement = connection.prepareStatement("""
-                         CREATE TABLE IF NOT EXISTS wos_auction_listings (
-                           listing_id CHAR(36) PRIMARY KEY,
-                           seller_id CHAR(36) NOT NULL,
-                           seller_name VARCHAR(64) NOT NULL,
-                           item_blob LONGBLOB NOT NULL,
-                           price DOUBLE NOT NULL,
-                           created_at BIGINT NOT NULL
-                         )
-                         """)) {
-                        statement.executeUpdate();
-                    }
-                    future.complete(null);
-                } catch (SQLException ex) {
-                    plugin.getLogger().severe("Could not create MySQL tables: " + ex.getMessage());
-                    future.completeExceptionally(ex);
                 }
             }
-        }.runTaskAsynchronously(plugin);
-        return future;
+        }
+    }
+
+    private void recordMigration(Connection connection, String migration) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+             INSERT INTO wos_schema_migrations (migration_id, applied_at)
+             VALUES (?, ?)
+             """)) {
+            statement.setString(1, migration);
+            statement.setLong(2, System.currentTimeMillis());
+            statement.executeUpdate();
+        }
     }
 
     @Override
     public CompletableFuture<Optional<IslandData>> loadIsland(UUID ownerId) {
         CompletableFuture<Optional<IslandData>> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("SELECT * FROM wos_islands WHERE owner_id = ?")) {
                     statement.setString(1, ownerId.toString());
@@ -168,17 +202,14 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
         return future;
     }
 
     @Override
     public CompletableFuture<List<IslandData>> loadAllIslands() {
         CompletableFuture<List<IslandData>> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 List<IslandData> islands = new ArrayList<>();
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("SELECT * FROM wos_islands");
@@ -214,17 +245,14 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
         return future;
     }
 
     @Override
     public CompletableFuture<Void> saveIsland(IslandData island) {
         CompletableFuture<Void> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 String members = island.trustedMembers().stream().map(UUID::toString).collect(Collectors.joining(","));
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("""
@@ -274,8 +302,7 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
         return future;
     }
 
@@ -305,9 +332,7 @@ public final class MySqlStorage implements Storage {
     @Override
     public CompletableFuture<Integer> nextIslandIndex() {
         CompletableFuture<Integer> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("SELECT COALESCE(MAX(parcel_index), -1) + 1 AS next_index FROM wos_islands");
                      ResultSet result = statement.executeQuery()) {
@@ -316,17 +341,14 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
         return future;
     }
 
     @Override
     public CompletableFuture<Void> deleteIsland(UUID ownerId) {
         CompletableFuture<Void> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("DELETE FROM wos_islands WHERE owner_id = ?")) {
                     statement.setString(1, ownerId.toString());
@@ -335,17 +357,47 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteIslandPlayerData(UUID playerId, String worldName) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        runWhenReady(future, () -> {
+                try (Connection connection = dataSource.getConnection()) {
+                    connection.setAutoCommit(false);
+                    try {
+                        try (PreparedStatement statement = connection.prepareStatement("DELETE FROM wos_balances WHERE player_id = ? AND world_name = ?")) {
+                            statement.setString(1, playerId.toString());
+                            statement.setString(2, worldName);
+                            statement.executeUpdate();
+                        }
+                        try (PreparedStatement statement = connection.prepareStatement("DELETE FROM wos_quest_completions WHERE player_id = ?")) {
+                            statement.setString(1, playerId.toString());
+                            statement.executeUpdate();
+                        }
+                        try (PreparedStatement statement = connection.prepareStatement("DELETE FROM wos_quest_progress WHERE player_id = ?")) {
+                            statement.setString(1, playerId.toString());
+                            statement.executeUpdate();
+                        }
+                        connection.commit();
+                        future.complete(null);
+                    } catch (SQLException ex) {
+                        connection.rollback();
+                        future.completeExceptionally(ex);
+                    }
+                } catch (SQLException ex) {
+                    future.completeExceptionally(ex);
+                }
+        });
         return future;
     }
 
     @Override
     public CompletableFuture<Double> loadBalance(UUID playerId, String worldName, double defaultBalance) {
         CompletableFuture<Double> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("SELECT balance FROM wos_balances WHERE player_id = ? AND world_name = ?")) {
                     statement.setString(1, playerId.toString());
@@ -356,17 +408,14 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
         return future;
     }
 
     @Override
     public CompletableFuture<Void> saveBalance(UUID playerId, String worldName, double balance) {
         CompletableFuture<Void> future = new CompletableFuture<>();
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        runWhenReady(future, () -> {
                 try (Connection connection = dataSource.getConnection();
                      PreparedStatement statement = connection.prepareStatement("""
                          INSERT INTO wos_balances (player_id, world_name, balance)
@@ -381,8 +430,7 @@ public final class MySqlStorage implements Storage {
                 } catch (SQLException ex) {
                     future.completeExceptionally(ex);
                 }
-            }
-        }.runTaskAsynchronously(plugin);
+        });
         return future;
     }
 
@@ -507,7 +555,7 @@ public final class MySqlStorage implements Storage {
                         ));
                     }
                     future.complete(listings);
-                } catch (SQLException | IOException | ClassNotFoundException ex) {
+                } catch (SQLException | IllegalArgumentException ex) {
                     future.completeExceptionally(ex);
                 }
         });
@@ -536,7 +584,7 @@ public final class MySqlStorage implements Storage {
                     statement.setLong(6, System.currentTimeMillis());
                     statement.executeUpdate();
                     future.complete(null);
-                } catch (SQLException | IOException ex) {
+                } catch (SQLException | IllegalArgumentException ex) {
                     future.completeExceptionally(ex);
                 }
         });
@@ -564,18 +612,12 @@ public final class MySqlStorage implements Storage {
         dataSource.close();
     }
 
-    private byte[] serializeItem(ItemStack item) throws IOException {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (BukkitObjectOutputStream output = new BukkitObjectOutputStream(bytes)) {
-            output.writeObject(item);
-        }
-        return bytes.toByteArray();
+    private byte[] serializeItem(ItemStack item) {
+        return item.serializeAsBytes();
     }
 
-    private ItemStack deserializeItem(byte[] bytes) throws IOException, ClassNotFoundException {
-        try (BukkitObjectInputStream input = new BukkitObjectInputStream(new ByteArrayInputStream(bytes))) {
-            return (ItemStack) input.readObject();
-        }
+    private ItemStack deserializeItem(byte[] bytes) {
+        return ItemStack.deserializeBytes(bytes);
     }
 
     private void runWhenReady(CompletableFuture<?> future, Runnable task) {
@@ -584,12 +626,21 @@ public final class MySqlStorage implements Storage {
                 future.completeExceptionally(ex);
                 return;
             }
-            new BukkitRunnable() {
-                @Override
-                public void run() {
+            CompletableFuture.runAsync(() -> {
+                try {
                     task.run();
+                } catch (Throwable throwable) {
+                    plugin.getLogger().warning("MySQL storage task failed: " + throwable.getMessage());
+                    future.completeExceptionally(throwable);
                 }
-            }.runTaskAsynchronously(plugin);
+            }).exceptionally(throwable -> {
+                Throwable cause = throwable instanceof CompletionException && throwable.getCause() != null
+                    ? throwable.getCause()
+                    : throwable;
+                plugin.getLogger().warning("Could not schedule MySQL storage task: " + cause.getMessage());
+                future.completeExceptionally(cause);
+                return null;
+            });
         });
     }
 }

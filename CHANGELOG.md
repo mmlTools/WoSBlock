@@ -26,6 +26,12 @@
 - Directional island boundary expansion.
 - Island HUD and Questie displays scoped to island context.
 - `.gitignore` excluding build output, local runtime files, `build-instructions.md`, and `site/`.
+- MySQL migration runner with `wos_schema_migrations` and versioned SQL files under `db/migrations`.
+- RPG starter island rebuild command via `/is rebuild`.
+- Configurable Auction House per-player listing cap and seller cancellation flow with a 10% fee.
+- Chest sort and hopper filter buttons inside container UIs, replacing sneak-right-click container hijacking.
+- Implemented/configured the full build-list set of 20 custom scrolls and 20 custom enchant books.
+- `/wosblock listcustom` for listing configured scroll and custom enchant IDs before using give commands.
 
 ### Changed
 
@@ -35,7 +41,13 @@
 - Coin balances are stored per world and through the selected storage backend.
 - Gather quests no longer progress from item pickup. They are verified from inventory/container contents at turn-in.
 - Gather and mining turn-ins consume the required items at claim time.
-- Starter island generation is compact and includes buckets, crops, NPC eggs, and a small cave.
+- Starter island generation now keeps only the starter tree and chest; the guest book is now a chest item players can place wherever they want.
+- HUD and Questie lock/unlock commands and display text were removed; only toggle commands remain.
+- Custom enchants can coexist on the same item instead of replacing the previous custom enchant.
+- New island parcels are reserved from the loaded island cache and placed in a linear row to prevent simultaneous `/is start` overlap.
+- `/is clear` now blocks immediate restart until storage deletion, entity cleanup, and block clearing finish.
+- `/is clear` now purges island-bound player data, including island-world balance, quest progress/completions, island inventory context, seller auction listings, and void recovery cache.
+- Players who die on an island now respawn back on an island instead of the main world spawn.
 
 ### Storage
 
@@ -45,6 +57,7 @@
   - `wos_quest_completions`
   - `wos_quest_progress`
   - `wos_auction_listings`
+  - `wos_schema_migrations`
 
 ### Documentation
 

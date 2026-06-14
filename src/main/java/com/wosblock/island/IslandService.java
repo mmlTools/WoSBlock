@@ -5,8 +5,11 @@ import com.wosblock.item.ItemFactory;
 import com.wosblock.storage.Storage;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
@@ -16,6 +19,7 @@ import org.bukkit.WorldCreator;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -25,8 +29,12 @@ public final class IslandService {
     private final Storage storage;
     private final ItemFactory itemFactory;
     private final Map<UUID, IslandData> islandCache = new ConcurrentHashMap<>();
+    private final Set<UUID> clearingIslands = ConcurrentHashMap.newKeySet();
     private final IslandBuilder islandBuilder;
     private final World islandWorld;
+    private CompletableFuture<Void> preloadFuture = CompletableFuture.completedFuture(null);
+    private BiFunction<Player, IslandData, CompletableFuture<Void>> islandDataCleanup =
+        (player, island) -> CompletableFuture.completedFuture(null);
 
     public IslandService(WoSBlockPlugin plugin, Storage storage) {
         this.plugin = plugin;
@@ -34,7 +42,7 @@ public final class IslandService {
         this.itemFactory = new ItemFactory(plugin);
         this.islandWorld = loadIslandWorld();
         this.islandBuilder = new IslandBuilder(plugin, this);
-        preloadIslands();
+        this.preloadFuture = preloadIslands();
     }
 
     public Optional<IslandData> islandAt(Location location) {
@@ -59,12 +67,23 @@ public final class IslandService {
         return Optional.ofNullable(islandCache.get(ownerId));
     }
 
+    public void setIslandDataCleanup(BiFunction<Player, IslandData, CompletableFuture<Void>> islandDataCleanup) {
+        this.islandDataCleanup = islandDataCleanup == null
+            ? (player, island) -> CompletableFuture.completedFuture(null)
+            : islandDataCleanup;
+    }
+
     public boolean isOwnerOrTrusted(Player player, IslandData island) {
         return island.ownerId().equals(player.getUniqueId()) || island.trustedMembers().contains(player.getUniqueId());
     }
 
     public void startIsland(Player player) {
-        storage.loadIsland(player.getUniqueId()).thenAccept(optional -> {
+        if (clearingIslands.contains(player.getUniqueId())) {
+            player.sendMessage("Your old island is still being cleared. Try again in a moment.");
+            return;
+        }
+        player.sendMessage("Preparing your island...");
+        preloadFuture.thenCompose(ignored -> storage.loadIsland(player.getUniqueId())).thenAccept(optional -> {
             if (optional.isPresent()) {
                 IslandData loaded = optional.get();
                 islandCache.put(player.getUniqueId(), loaded);
@@ -78,19 +97,18 @@ public final class IslandService {
                 return;
             }
 
-            storage.nextIslandIndex().thenAccept(index -> Bukkit.getScheduler().runTask(plugin, () -> {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                int index = nextAvailableParcelIndex();
                 IslandData created = createIslandData(player.getUniqueId(), index);
                 islandCache.put(player.getUniqueId(), created);
                 islandBuilder.build(created);
                 save(created);
                 player.teleport(created.spawnLocation());
                 player.sendMessage("Island started. Your starter chest contains the Auctioneer, Thief, and Clerk eggs.");
-            })).exceptionally(ex -> {
-                plugin.getLogger().warning("Could not reserve island parcel: " + ex.getMessage());
-                return null;
             });
         }).exceptionally(ex -> {
             plugin.getLogger().warning("Could not load island for " + player.getName() + ": " + ex.getMessage());
+            player.sendMessage("Could not load your island. Check the server console.");
             return null;
         });
     }
@@ -112,14 +130,41 @@ public final class IslandService {
             return false;
         }
 
+        clearingIslands.add(player.getUniqueId());
         leaveIsland(player);
         islandCache.remove(player.getUniqueId());
-        storage.deleteIsland(player.getUniqueId()).exceptionally(ex -> {
-            plugin.getLogger().warning("Could not delete island data for " + player.getName() + ": " + ex.getMessage());
-            return null;
-        });
-        clearIslandBlocks(island);
-        player.sendMessage("Island data deleted. Blocks are being cleared in the background.");
+        clearIslandEntities(island);
+        CompletableFuture<Void> deleteFuture = storage.deleteIsland(player.getUniqueId());
+        CompletableFuture<Void> cleanupFuture = islandDataCleanup.apply(player, island);
+        CompletableFuture<Void> clearFuture = clearIslandBlocks(island);
+        CompletableFuture.allOf(deleteFuture, cleanupFuture, clearFuture).whenComplete((ignored, ex) -> Bukkit.getScheduler().runTask(plugin, () -> {
+            clearingIslands.remove(player.getUniqueId());
+            if (ex != null) {
+                islandCache.put(player.getUniqueId(), island);
+                plugin.getLogger().warning("Could not fully clear island for " + player.getName() + ": " + ex.getMessage());
+                player.sendMessage("Could not fully clear your island. Check the server console.");
+                return;
+            }
+            player.sendMessage("Island cleared. You can start a fresh island with /is start.");
+        }));
+        player.sendMessage("Island data is being deleted and the old island is being cleared.");
+        return true;
+    }
+
+    public boolean rebuildIsland(Player player) {
+        IslandData island = islandCache.get(player.getUniqueId());
+        if (island == null) {
+            player.sendMessage("You do not have a loaded island to rebuild.");
+            return false;
+        }
+        if (!island.ownerId().equals(player.getUniqueId())) {
+            player.sendMessage("Only the true island owner can rebuild this island.");
+            return false;
+        }
+
+        islandBuilder.build(island);
+        player.teleport(island.spawnLocation());
+        player.sendMessage("Island rebuilt with the starter RPG layout.");
         return true;
     }
 
@@ -149,8 +194,8 @@ public final class IslandService {
         });
     }
 
-    private void preloadIslands() {
-        storage.loadAllIslands().thenAccept(islands -> {
+    private CompletableFuture<Void> preloadIslands() {
+        return storage.loadAllIslands().thenAccept(islands -> {
             for (IslandData island : islands) {
                 islandCache.put(island.ownerId(), island);
             }
@@ -159,6 +204,14 @@ public final class IslandService {
             plugin.getLogger().warning("Could not preload islands: " + ex.getMessage());
             return null;
         });
+    }
+
+    private int nextAvailableParcelIndex() {
+        int next = 0;
+        for (IslandData island : islandCache.values()) {
+            next = Math.max(next, island.parcelIndex() + 1);
+        }
+        return next;
     }
 
     public IslandData initializeNewIsland(Player owner, Location islandSpawn) {
@@ -221,22 +274,7 @@ public final class IslandService {
     }
 
     private int[] parcelCoordinates(int index) {
-        if (index == 0) {
-            return new int[] { 0, 0 };
-        }
-        int ring = (int) Math.ceil((Math.sqrt(index + 1) - 1) / 2);
-        int sideLength = ring * 2;
-        int maxIndexInRing = (sideLength + 1) * (sideLength + 1) - 1;
-        int offset = maxIndexInRing - index;
-        int side = offset / sideLength;
-        int position = offset % sideLength;
-
-        return switch (side) {
-            case 0 -> new int[] { ring - position, -ring };
-            case 1 -> new int[] { -ring, -ring + position };
-            case 2 -> new int[] { -ring + position, ring };
-            default -> new int[] { ring, ring - position };
-        };
+        return new int[] { Math.max(0, index), 0 };
     }
 
     private boolean isIslandMissing(IslandData island) {
@@ -255,10 +293,12 @@ public final class IslandService {
         return returnWorld.getSpawnLocation().add(0.5, 0.0, 0.5);
     }
 
-    private void clearIslandBlocks(IslandData island) {
+    private CompletableFuture<Void> clearIslandBlocks(IslandData island) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
         World world = Bukkit.getWorld(island.worldName());
         if (world == null) {
-            return;
+            future.complete(null);
+            return future;
         }
         int minX = island.centerX() - island.expandWest();
         int maxX = island.centerX() + island.expandEast();
@@ -289,12 +329,30 @@ public final class IslandService {
                         x++;
                     }
                     if (x > maxX) {
+                        future.complete(null);
                         cancel();
                         return;
                     }
                 }
             }
         }.runTaskTimer(plugin, 1L, 1L);
+        return future;
+    }
+
+    private void clearIslandEntities(IslandData island) {
+        World world = Bukkit.getWorld(island.worldName());
+        if (world == null) {
+            return;
+        }
+        Location center = island.centerLocation();
+        double radiusX = Math.max(island.expandEast(), island.expandWest()) + 8.0;
+        double radiusZ = Math.max(island.expandNorth(), island.expandSouth()) + 8.0;
+        double radiusY = Math.max(16.0, plugin.getConfig().getInt("islands.clear-max-y-offset", 128));
+        for (Entity entity : world.getNearbyEntities(center, radiusX, radiusY, radiusZ)) {
+            if (!(entity instanceof Player) && island.contains(entity.getLocation())) {
+                entity.remove();
+            }
+        }
     }
 
     private World loadIslandWorld() {

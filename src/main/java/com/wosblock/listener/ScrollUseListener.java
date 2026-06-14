@@ -15,9 +15,21 @@ public final class ScrollUseListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onScrollUse(PlayerInteractEvent event) {
+        if (event.getAction() == Action.LEFT_CLICK_BLOCK && scrollService.handlePlatformSelection(event.getPlayer(), event.getClickedBlock(), true)) {
+            event.setCancelled(true);
+            return;
+        }
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            if (scrollService.handlePlatformSelection(event.getPlayer(), event.getClickedBlock(), false)
+                || scrollService.handleHopperLinkSelection(event.getPlayer(), event.getClickedBlock())) {
+                event.setCancelled(true);
+                return;
+            }
+        }
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }
+
         if (scrollService.use(event.getPlayer(), event.getItem())) {
             event.setCancelled(true);
         }

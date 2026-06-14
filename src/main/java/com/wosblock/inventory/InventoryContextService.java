@@ -3,7 +3,10 @@ package com.wosblock.inventory;
 import com.wosblock.WoSBlockPlugin;
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.GameMode;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -14,6 +17,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 public final class InventoryContextService {
     private final WoSBlockPlugin plugin;
     private final File folder;
+    private final Set<String> deletedContexts = ConcurrentHashMap.newKeySet();
 
     public InventoryContextService(WoSBlockPlugin plugin) {
         this.plugin = plugin;
@@ -45,6 +49,10 @@ public final class InventoryContextService {
 
     private void save(Player player, String worldName) {
         UUID uuid = player.getUniqueId();
+        String key = key(uuid, worldName);
+        if (deletedContexts.contains(key)) {
+            return;
+        }
         ItemStack[] contents = player.getInventory().getContents();
         ItemStack[] armor = player.getInventory().getArmorContents();
         ItemStack offhand = player.getInventory().getItemInOffHand();
@@ -56,6 +64,9 @@ public final class InventoryContextService {
         new BukkitRunnable() {
             @Override
             public void run() {
+                if (deletedContexts.contains(key)) {
+                    return;
+                }
                 File file = file(uuid, worldName);
                 YamlConfiguration yaml = new YamlConfiguration();
                 yaml.set("inventory", contents);
@@ -75,6 +86,7 @@ public final class InventoryContextService {
     }
 
     private void load(Player player, String worldName) {
+        deletedContexts.remove(key(player.getUniqueId(), worldName));
         File file = file(player.getUniqueId(), worldName);
         player.getInventory().clear();
         player.getInventory().setArmorContents(null);
@@ -115,8 +127,30 @@ public final class InventoryContextService {
         return items;
     }
 
+    public CompletableFuture<Void> deleteContext(UUID uuid, String worldName) {
+        String key = key(uuid, worldName);
+        deletedContexts.add(key);
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                File file = file(uuid, worldName);
+                if (file.exists() && !file.delete()) {
+                    future.completeExceptionally(new IOException("Could not delete " + file.getAbsolutePath()));
+                    return;
+                }
+                future.complete(null);
+            }
+        }.runTaskAsynchronously(plugin);
+        return future;
+    }
+
     private File file(UUID uuid, String worldName) {
         return new File(folder, uuid + "_" + worldName + ".yml");
+    }
+
+    private String key(UUID uuid, String worldName) {
+        return uuid + ":" + worldName;
     }
 
     private double maxHealth(Player player) {

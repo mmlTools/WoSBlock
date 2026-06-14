@@ -4,10 +4,10 @@ High-performance Paper island plugin scaffold for multiplayer skyblock-style ser
 
 ## Current Features
 
-- Dedicated void island world with parcel spacing, compact starter island, starter cave, one bedrock core, starter chest, crops, lava/water buckets, and the three core NPC eggs.
+- Dedicated void island world with parcel spacing, compact starter island, one bedrock core, starter tree, starter chest, movable guest book, crops, lava/water buckets, and the three core NPC eggs.
 - Core NPCs: Auctioneer, Thief, and Clerk. They are invulnerable, non-AI, non-collidable managed NPCs.
 - EnderWorld Egg item for NPC relocation/capture. Core NPC relocation is guaranteed for trusted island players; other NPC captures can fail.
-- Auction House via `/ah sell <price>` with configurable min/max material price limits.
+- Auction House via `/ah sell <price>` with configurable min/max material price limits, per-player listing caps, and seller cancellation fees.
 - Auction listings persist in MySQL or flat-file storage.
 - Black Market uses `black-market.yml`, shows one random global offer every 30 minutes, and supports rare spawner offers.
 - Island-only item tooltips show Black Market price and Auction House min/max price, then disappear outside island context.
@@ -16,8 +16,9 @@ High-performance Paper island plugin scaffold for multiplayer skyblock-style ser
 - MySQL storage via HikariCP, plus flat-file YAML storage. Database work runs asynchronously.
 - Persistent per-world coin balances, island data, quest completions/progress, and auction listings.
 - Per-world inventory contexts so normal-world and island inventories do not mix.
+- `/is clear` removes the island plus island-bound player data: island-world balance, quest progress/completions, island inventory context, Auction House listings, and void recovery cache.
 - O(1) cached cobblestone generator weight tables and configurable mining XP per ore.
-- Custom fishing loot tables, scrolls, custom enchant books, trophies, material compactor, hopper filter UI, chest sorting, void item recovery, and island waypoints.
+- Custom fishing loot tables, 20 configured scrolls, 20 stackable custom enchant books, trophies, material compactor, hopper filter UI, chest sorting buttons, void item recovery, and island waypoints.
 - Island HUD and Questie displays only appear in island context.
 - Per-player border display and directional island expansion scrolls.
 
@@ -71,6 +72,7 @@ Use this plugin config:
 storage-type: mysql
 
 mysql:
+  database: "wosblock"
   jdbc-url: "jdbc:mysql://localhost:3306/wosblock?useSSL=false&serverTimezone=UTC"
   username: "skyblock"
   password: "change-me"
@@ -96,7 +98,10 @@ wos_balances
 wos_quest_completions
 wos_quest_progress
 wos_auction_listings
+wos_schema_migrations
 ```
+
+Database schema updates live under `src/main/resources/db/migrations/`. Add new SQL files there and list them in `index.txt` so MySQL servers apply updates in order.
 
 Flat-file mode stores player stats under:
 
@@ -118,6 +123,7 @@ plugins/WoSBlock/world-inventories/
 /is home
 /is leave
 /is clear
+/is rebuild
 /is trust <player>
 /is settings
 /is balance
@@ -126,9 +132,7 @@ plugins/WoSBlock/world-inventories/
 /is waypoint <1-3>
 /ah sell <price>
 /hud toggle
-/hud lock
 /questie toggle
-/questie lock
 ```
 
 ## Admin Commands
@@ -137,13 +141,14 @@ plugins/WoSBlock/world-inventories/
 
 ```text
 /wosblock reload
+/wosblock listcustom
 /wosblock givescroll <id> [amount]
 /wosblock giveenchant <id> [amount]
 /wosblock givetrophy <tier>
 /wosblock giveenderworldegg [amount]
 ```
 
-The same admin subcommands also work with `/wos`, for example `/wos reload` and `/wos givescroll fly`.
+The same admin subcommands also work with `/wos`, for example `/wos reload`, `/wos listcustom`, and `/wos givescroll fly`.
 
 Permission node:
 
@@ -156,6 +161,7 @@ By default, OPs have this permission.
 ## Useful Test IDs
 
 ```text
+/wosblock listcustom
 /wosblock givescroll cobble-generator-xp
 /wosblock givescroll repair
 /wosblock givescroll feed-heal
@@ -166,6 +172,9 @@ By default, OPs have this permission.
 /wosblock giveenchant blast-mining
 /wosblock giveenchant auto-smelt
 /wosblock giveenchant telekinesis
+/wosblock giveenchant lumberjack
+/wosblock giveenchant replant
+/wosblock giveenchant harvester-fortune
 /wosblock givetrophy legendary
 /wosblock giveenderworldegg
 ```

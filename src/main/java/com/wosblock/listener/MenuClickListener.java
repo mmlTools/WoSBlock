@@ -6,6 +6,7 @@ import java.util.Set;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 
@@ -29,7 +30,7 @@ public final class MenuClickListener implements Listener {
             return;
         }
         String title = Text.plainText(event.getView().title());
-        if (menuService.handleClick(player, title, event.getRawSlot(), event.getCurrentItem())) {
+        if (menuService.handleClick(player, title, event.getRawSlot(), event.getCurrentItem(), event.getClick())) {
             event.setCancelled(true);
             return;
         }

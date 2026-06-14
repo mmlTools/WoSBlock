@@ -43,6 +43,9 @@ public final class CraftingRecipeService {
             return;
         }
         for (String id : enchants.getKeys(false)) {
+            if (!enchants.getBoolean(id + ".enabled", true)) {
+                continue;
+            }
             ConfigurationSection recipeSection = enchants.getConfigurationSection(id + ".recipe");
             if (recipeSection == null) {
                 continue;

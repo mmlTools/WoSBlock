@@ -1,12 +1,107 @@
 scrolls:
+  platform-builder:
+    duration-seconds: 300
+    max-volume: 500
+    recipe:
+      COBBLESTONE: 64
+      STICK: 8
   cobble-generator-xp:
     xp: 1000
     recipe:
       BLAZE_ROD: 16
       ENDER_PEARL: 8
+  repair:
+    recipe:
+      IRON_INGOT: 4
+      REDSTONE: 4
+      LAPIS_LAZULI: 1
+  feed-heal:
+    recipe:
+      APPLE: 4
+      GOLD_INGOT: 4
+      GLOWSTONE_DUST: 1
+  haste-speed:
+    duration-seconds: 1200
+    amplifier: 1
+    recipe:
+      SUGAR: 4
+      BLAZE_POWDER: 4
+      REDSTONE: 1
   fly:
     duration-seconds: 1800
+    recipe:
+      FEATHER: 8
+      ENDER_PEARL: 1
+  magnet:
+    duration-seconds: 900
+    recipe:
+      HOPPER: 1
+      ENDER_PEARL: 4
+  hopper-wireless-link:
+    duration-seconds: 7200
+    recipe:
+      HOPPER: 2
+      CHEST: 2
+      ENDER_PEARL: 8
+  chunk-fertilizer:
+    duration-seconds: 600
+    recipe:
+      BONE_MEAL: 32
+      WHEAT_SEEDS: 16
+  mob-spawner-booster:
+    duration-seconds: 3600
+    delay-reduction: 0.25
+    recipe:
+      BLAZE_ROD: 16
+      CLOCK: 1
+  expresso-mining:
+    duration-seconds: 600
+    recipe:
+      TNT: 4
+      BLAZE_POWDER: 8
+  spawner-silencer:
+    recipe:
+      ECHO_SHARD: 1
+      WHITE_WOOL: 16
+  aquatic-bait:
+    duration-seconds: 1800
+    recipe:
+      COD: 8
+      PRISMARINE_CRYSTALS: 4
+  merchant-discount:
+    duration-seconds: 900
+    discount: 0.15
+    recipe:
+      EMERALD: 8
+      GOLD_INGOT: 16
+  trophy-booster:
+    duration-seconds: 1800
+    recipe:
+      NETHER_STAR: 1
+      EXPERIENCE_BOTTLE: 16
   void-fall-negation:
     duration-seconds: 3600
+    recipe:
+      ENDER_PEARL: 8
+      PHANTOM_MEMBRANE: 1
+  clear-weather:
+    duration-seconds: 7200
+    recipe:
+      SUNFLOWER: 4
+      GLASS: 8
+  minion-fuel:
+    duration-seconds: 1800
+    recipe:
+      COAL_BLOCK: 4
+      REDSTONE_BLOCK: 1
+  scroll-of-the-deep:
+    duration-seconds: 3600
+    recipe:
+      HEART_OF_THE_SEA: 1
+      PRISMARINE: 16
   island-boundary-expander:
     side-increase: 5
+    recipe:
+      MAP: 1
+      DIAMOND: 4
+      ENDER_PEARL: 4

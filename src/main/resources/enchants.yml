@@ -15,3 +15,103 @@ custom-enchants:
     recipe:
       ENDER_PEARL: 16
       LAPIS_LAZULI: 32
+  lumberjack:
+    enabled: true
+    max-logs: 32
+    recipe:
+      OAK_LOG: 8
+      IRON_AXE: 1
+      BONE_MEAL: 8
+  replant:
+    enabled: true
+    recipe:
+      WHEAT_SEEDS: 16
+      BONE_MEAL: 16
+  harvester-fortune:
+    enabled: true
+    extra-drop-chance: 0.35
+    recipe:
+      CARROT: 16
+      POTATO: 16
+      GOLDEN_CARROT: 1
+  mob-swarm:
+    enabled: true
+    chance: 0.2
+    damage-share: 0.5
+    recipe:
+      SPIDER_EYE: 16
+      BLAZE_ROD: 8
+  loot-multiplier:
+    enabled: true
+    chance: 0.2
+    recipe:
+      RABBIT_FOOT: 4
+      EMERALD: 8
+  beheading:
+    enabled: true
+    chance: 0.05
+    recipe:
+      WITHER_SKELETON_SKULL: 1
+      IRON_SWORD: 1
+  experience-vampire:
+    enabled: true
+    multiplier: 1.5
+    recipe:
+      EXPERIENCE_BOTTLE: 16
+      FERMENTED_SPIDER_EYE: 4
+  void-insurance:
+    enabled: true
+    recipe:
+      PHANTOM_MEMBRANE: 8
+      DIAMOND_CHESTPLATE: 1
+  hydro-soil:
+    enabled: true
+    recipe:
+      WATER_BUCKET: 1
+      BONE_MEAL: 16
+  photosynthesis:
+    enabled: true
+    recipe:
+      SUNFLOWER: 8
+      GOLDEN_HELMET: 1
+  spring-step:
+    enabled: true
+    recipe:
+      RABBIT_FOOT: 8
+      FEATHER: 8
+  molten-touch:
+    enabled: true
+    fire-chance: 0.25
+    recipe:
+      BLAZE_POWDER: 16
+      MAGMA_CREAM: 4
+  gorgon-eye:
+    enabled: true
+    freeze-chance: 0.05
+    duration-seconds: 3
+    recipe:
+      ENDER_EYE: 4
+      ARROW: 32
+  sea-collector:
+    enabled: true
+    double-chance: 0.15
+    recipe:
+      PRISMARINE_CRYSTALS: 8
+      FISHING_ROD: 1
+  abyssal-hook:
+    enabled: true
+    rare-upgrade-chance: 0.25
+    recipe:
+      HEART_OF_THE_SEA: 1
+      NAUTILUS_SHELL: 4
+  unbreakable-core:
+    enabled: true
+    prevent-chance: 0.15
+    recipe:
+      NETHERITE_SCRAP: 4
+      OBSIDIAN: 16
+  titanium-silk-touch:
+    enabled: true
+    recipe:
+      NETHERITE_AXE: 1
+      ECHO_SHARD: 4

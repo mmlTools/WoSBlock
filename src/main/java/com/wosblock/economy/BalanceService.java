@@ -81,6 +81,13 @@ public final class BalanceService {
         });
     }
 
+    public void clear(UUID playerId, String worldName) {
+        String key = key(playerId, worldName);
+        balances.remove(key);
+        loaded.remove(key);
+        loading.remove(key);
+    }
+
     private double startingBalance() {
         return plugin.getConfig().getDouble("economy.starting-balance", 1000.0);
     }

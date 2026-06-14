@@ -3,9 +3,11 @@ package com.wosblock.auction;
 import com.wosblock.WoSBlockPlugin;
 import com.wosblock.economy.BalanceService;
 import com.wosblock.storage.Storage;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -33,6 +35,13 @@ public final class AuctionHouseService {
         if (plugin.getConfig().getStringList("auction-house.blocked-materials").contains(item.getType().name())) {
             return "That item is blocked from the Auction House.";
         }
+        int maxListings = plugin.getConfig().getInt("auction-house.max-listings-per-player", 5);
+        long activeListings = listings.stream()
+            .filter(listing -> listing.sellerId().equals(seller.getUniqueId()))
+            .count();
+        if (maxListings > 0 && activeListings >= maxListings) {
+            return "You can only list " + maxListings + " auction items at once.";
+        }
         ConfigurationSection limits = plugin.getConfig().getConfigurationSection("auction-house.price-limits." + item.getType().name());
         if (limits != null) {
             double min = limits.getDouble("min-price", 0);
@@ -57,8 +66,12 @@ public final class AuctionHouseService {
         return List.copyOf(listings);
     }
 
+    public Optional<AuctionListing> listing(UUID listingId) {
+        return listings.stream().filter(listing -> listing.id().equals(listingId)).findFirst();
+    }
+
     public boolean buy(Player buyer, UUID listingId) {
-        Optional<AuctionListing> optional = listings.stream().filter(listing -> listing.id().equals(listingId)).findFirst();
+        Optional<AuctionListing> optional = listing(listingId);
         if (optional.isEmpty()) {
             buyer.sendMessage("That listing is no longer available.");
             return false;
@@ -85,6 +98,50 @@ public final class AuctionHouseService {
         }
         buyer.sendMessage("Purchased auction for " + listing.price() + " coins.");
         return true;
+    }
+
+    public boolean cancel(Player seller, UUID listingId) {
+        Optional<AuctionListing> optional = listing(listingId);
+        if (optional.isEmpty()) {
+            seller.sendMessage("That listing is no longer available.");
+            return false;
+        }
+        AuctionListing listing = optional.get();
+        if (!listing.sellerId().equals(seller.getUniqueId())) {
+            seller.sendMessage("Only the seller can cancel this listing.");
+            return false;
+        }
+
+        double fee = listing.price() * 0.10;
+        if (!balanceService.withdraw(seller, fee)) {
+            seller.sendMessage("You need " + fee + " coins to cancel this auction.");
+            return false;
+        }
+
+        listings.remove(listing);
+        storage.deleteAuctionListing(listing.id()).exceptionally(ex -> {
+            plugin.getLogger().warning("Could not delete auction listing: " + ex.getMessage());
+            return null;
+        });
+        seller.getInventory().addItem(listing.item()).values().forEach(leftover -> seller.getWorld().dropItemNaturally(seller.getLocation(), leftover));
+        seller.sendMessage("Cancelled auction for a " + fee + " coin fee.");
+        return true;
+    }
+
+    public CompletableFuture<Void> deleteSellerListings(UUID sellerId) {
+        List<AuctionListing> removed = new ArrayList<>();
+        for (AuctionListing listing : listings) {
+            if (listing.sellerId().equals(sellerId) && listings.remove(listing)) {
+                removed.add(listing);
+            }
+        }
+        if (removed.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        CompletableFuture<?>[] deletes = removed.stream()
+            .map(listing -> storage.deleteAuctionListing(listing.id()))
+            .toArray(CompletableFuture[]::new);
+        return CompletableFuture.allOf(deletes);
     }
 
     private void loadListings() {

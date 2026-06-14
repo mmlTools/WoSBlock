@@ -159,6 +159,23 @@ public final class FlatFileStorage implements Storage {
     }
 
     @Override
+    public CompletableFuture<Void> deleteIslandPlayerData(UUID playerId, String worldName) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                File file = playerStatsFile(playerId);
+                YamlConfiguration yaml = loadPlayerStats(playerId);
+                yaml.set("balances." + worldName, null);
+                yaml.set("quest-completions", null);
+                yaml.set("quest-progress", null);
+                savePlayerStats(file, yaml, future);
+            }
+        }.runTaskAsynchronously(plugin);
+        return future;
+    }
+
+    @Override
     public CompletableFuture<Double> loadBalance(UUID playerId, String worldName, double defaultBalance) {
         CompletableFuture<Double> future = new CompletableFuture<>();
         new BukkitRunnable() {

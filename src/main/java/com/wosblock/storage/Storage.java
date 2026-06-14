@@ -17,6 +17,8 @@ public interface Storage extends AutoCloseable {
 
     CompletableFuture<Void> deleteIsland(UUID ownerId);
 
+    CompletableFuture<Void> deleteIslandPlayerData(UUID playerId, String worldName);
+
     CompletableFuture<Integer> nextIslandIndex();
 
     CompletableFuture<Double> loadBalance(UUID playerId, String worldName, double defaultBalance);

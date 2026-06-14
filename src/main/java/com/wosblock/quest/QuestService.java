@@ -190,6 +190,13 @@ public final class QuestService {
         });
     }
 
+    public void clear(UUID playerId) {
+        active.remove(playerId);
+        completions.remove(playerId);
+        loadedPlayers.remove(playerId);
+        loadingPlayers.remove(playerId);
+    }
+
     private void loadDefinitions() {
         FileConfiguration config = plugin.extraConfig("quests.yml");
         ConfigurationSection section = config.getConfigurationSection("quests");

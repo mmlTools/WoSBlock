@@ -26,8 +26,6 @@ public final class HudService {
     private final QuestService questService;
     private final Set<UUID> hudHidden = new HashSet<>();
     private final Set<UUID> questieHidden = new HashSet<>();
-    private final Set<UUID> hudLocked = new HashSet<>();
-    private final Set<UUID> questieLocked = new HashSet<>();
     private final java.util.Map<UUID, BossBar> questBars = new java.util.HashMap<>();
     private int taskId = -1;
 
@@ -53,63 +51,67 @@ public final class HudService {
     }
 
     public boolean toggleHud(Player player) {
-        if (!hudHidden.add(player.getUniqueId())) {
-            hudHidden.remove(player.getUniqueId());
-            return true;
+        if (hudVisible(player)) {
+            hudHidden.add(player.getUniqueId());
+            player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+            return false;
         }
-        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-        return false;
+        hudHidden.remove(player.getUniqueId());
+        updateHud(player);
+        return true;
     }
 
     public boolean toggleQuestie(Player player) {
-        if (!questieHidden.add(player.getUniqueId())) {
-            questieHidden.remove(player.getUniqueId());
-            return true;
-        }
-        BossBar bar = questBars.remove(player.getUniqueId());
-        if (bar != null) {
-            bar.removeAll();
-        }
-        return false;
-    }
-
-    public boolean toggleHudLock(Player player) {
-        return toggle(hudLocked, player.getUniqueId());
-    }
-
-    public boolean toggleQuestieLock(Player player) {
-        return toggle(questieLocked, player.getUniqueId());
-    }
-
-    private boolean toggle(Set<UUID> set, UUID uuid) {
-        if (!set.add(uuid)) {
-            set.remove(uuid);
+        if (questieVisible(player)) {
+            questieHidden.add(player.getUniqueId());
+            clearQuestie(player);
             return false;
         }
+        questieHidden.remove(player.getUniqueId());
+        updateQuestie(player);
         return true;
+    }
+
+    private boolean hudVisible(Player player) {
+        Objective objective = player.getScoreboard().getObjective(DisplaySlot.SIDEBAR);
+        return objective != null && objective.getName().equals("wos_hud");
+    }
+
+    private boolean questieVisible(Player player) {
+        BossBar bar = questBars.get(player.getUniqueId());
+        return bar != null && bar.getPlayers().contains(player);
+    }
+
+    public boolean canDisplay(Player player) {
+        return islandForDisplay(player) != null;
     }
 
     private void updateAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (islandService.islandAt(player.getLocation()).isEmpty()) {
+            IslandData island = islandForDisplay(player);
+            if (island == null) {
                 clearPlayerDisplays(player);
                 continue;
             }
             if (!hudHidden.contains(player.getUniqueId())) {
-                updateHud(player);
+                updateHud(player, island);
             }
             if (!questieHidden.contains(player.getUniqueId())) {
-                updateQuestie(player);
+                updateQuestie(player, island);
             }
         }
     }
 
     private void updateHud(Player player) {
-        IslandData island = islandService.islandAt(player.getLocation()).orElse(null);
+        IslandData island = islandForDisplay(player);
         if (island == null) {
             clearPlayerDisplays(player);
             return;
         }
+        updateHud(player, island);
+    }
+
+    private void updateHud(Player player, IslandData island) {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         Objective objective = scoreboard.registerNewObjective("wos_hud", Criteria.DUMMY, Text.legacy("&bSkyBlock HUD"));
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
@@ -120,15 +122,19 @@ public final class HudService {
         objective.getScore("§eMode: §f" + island.visitMode().name()).setScore(line--);
         objective.getScore("§9Bounds N/S: §f" + island.expandNorth() + "/" + island.expandSouth()).setScore(line--);
         objective.getScore("§9Bounds E/W: §f" + island.expandEast() + "/" + island.expandWest()).setScore(line--);
-        objective.getScore("§8" + (hudLocked.contains(player.getUniqueId()) ? "HUD locked" : "HUD unlocked")).setScore(line);
         player.setScoreboard(scoreboard);
     }
 
     private void updateQuestie(Player player) {
-        if (islandService.islandAt(player.getLocation()).isEmpty()) {
+        IslandData island = islandForDisplay(player);
+        if (island == null) {
             clearQuestie(player);
             return;
         }
+        updateQuestie(player, island);
+    }
+
+    private void updateQuestie(Player player, IslandData island) {
         BossBar bar = questBars.computeIfAbsent(player.getUniqueId(), ignored -> {
             BossBar created = Bukkit.createBossBar("Questie", BarColor.BLUE, BarStyle.SEGMENTED_10);
             created.addPlayer(player);
@@ -138,9 +144,20 @@ public final class HudService {
             bar.addPlayer(player);
         }
         java.util.List<String> quests = questService.activeSummaries(player, 3);
-        bar.setTitle("§eQuestie: §f" + String.join(" | ", quests)
-            + "§8" + (questieLocked.contains(player.getUniqueId()) ? " [locked]" : " [unlocked]"));
+        bar.setTitle("§eQuestie: §f" + (quests.isEmpty() ? "No active quests" : String.join(" | ", quests)));
         bar.setProgress(Math.max(0.05, Math.min(1.0, quests.size() / 3.0)));
+    }
+
+    private IslandData islandForDisplay(Player player) {
+        IslandData island = islandService.islandAt(player.getLocation()).orElse(null);
+        if (island != null) {
+            return island;
+        }
+        String islandWorld = plugin.getConfig().getString("islands.world-name", "world_skyblock");
+        if (player.getWorld().getName().equals(islandWorld)) {
+            return islandService.cachedIsland(player.getUniqueId()).orElse(null);
+        }
+        return null;
     }
 
     private void clearPlayerDisplays(Player player) {

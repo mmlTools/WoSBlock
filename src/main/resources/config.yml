@@ -4,6 +4,7 @@ economy:
   starting-balance: 1000.0
 
 mysql:
+  database: "wosblock"
   jdbc-url: "jdbc:mysql://localhost:3306/wosblock?useSSL=false&serverTimezone=UTC"
   username: "skyblock"
   password: "change-me"
@@ -48,6 +49,7 @@ npcs:
       material: VILLAGER_SPAWN_EGG
 
 auction-house:
+  max-listings-per-player: 5
   blocked-materials:
     - SPAWNER
   price-limits:
