@@ -6,7 +6,7 @@ economy:
 mysql:
   database: "wosblock"
   jdbc-url: "jdbc:mysql://localhost:3306/wosblock?useSSL=false&serverTimezone=UTC"
-  username: "skyblock"
+  username: "wosblock"
   password: "change-me"
   pool:
     maximum-pool-size: 10
@@ -14,7 +14,7 @@ mysql:
     connection-timeout-ms: 10000
 
 islands:
-  world-name: world_skyblock
+  world-name: world_wosblock
   return-world: world
   parcel-spacing: 512
   default-radius: 75

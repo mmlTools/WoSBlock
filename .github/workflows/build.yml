@@ -1,0 +1,56 @@
+name: Build Jar
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Maven Jar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Read Maven coordinates
+        run: |
+          echo "PROJECT_VERSION=$(mvn -B help:evaluate '-Dexpression=project.version' -q '-DforceStdout')" >> "$GITHUB_ENV"
+          echo "ARTIFACT_ID=$(mvn -B help:evaluate '-Dexpression=project.artifactId' -q '-DforceStdout')" >> "$GITHUB_ENV"
+
+      - name: Build jar
+        run: mvn -B package
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="v${PROJECT_VERSION}"
+          JAR_PATH="target/${ARTIFACT_ID}-${PROJECT_VERSION}.jar"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" "$JAR_PATH" --clobber
+          else
+            gh release create "$TAG_NAME" "$JAR_PATH" \
+              --title "${ARTIFACT_ID} ${PROJECT_VERSION}" \
+              --notes "Automated build for ${ARTIFACT_ID} ${PROJECT_VERSION}." \
+              --target "$GITHUB_SHA"
+          fi
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_ID }}-${{ env.PROJECT_VERSION }}
+          path: target/${{ env.ARTIFACT_ID }}-${{ env.PROJECT_VERSION }}.jar
+          if-no-files-found: error

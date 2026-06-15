@@ -113,7 +113,7 @@ public final class HudService {
 
     private void updateHud(Player player, IslandData island) {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
-        Objective objective = scoreboard.registerNewObjective("wos_hud", Criteria.DUMMY, Text.legacy("&bSkyBlock HUD"));
+        Objective objective = scoreboard.registerNewObjective("wos_hud", Criteria.DUMMY, Text.legacy("&bwosblock HUD"));
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         int line = 10;
         objective.getScore("§6Coins: §f" + balanceService.balance(player)).setScore(line--);
@@ -153,7 +153,7 @@ public final class HudService {
         if (island != null) {
             return island;
         }
-        String islandWorld = plugin.getConfig().getString("islands.world-name", "world_skyblock");
+        String islandWorld = plugin.getConfig().getString("islands.world-name", "world_wosblock");
         if (player.getWorld().getName().equals(islandWorld)) {
             return islandService.cachedIsland(player.getUniqueId()).orElse(null);
         }

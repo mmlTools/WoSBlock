@@ -8,7 +8,7 @@ plugins/
 world/
 world_nether/
 world_the_end/
-world_skyblock/
+world_wosblock/
 logs/
 crash-reports/
 server.properties

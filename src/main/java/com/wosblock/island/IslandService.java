@@ -356,7 +356,7 @@ public final class IslandService {
     }
 
     private World loadIslandWorld() {
-        String worldName = plugin.getConfig().getString("islands.world-name", "world_skyblock");
+        String worldName = plugin.getConfig().getString("islands.world-name", "world_wosblock");
         World world = Bukkit.getWorld(worldName);
         if (world == null) {
             world = new WorldCreator(worldName)

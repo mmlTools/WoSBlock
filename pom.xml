@@ -9,7 +9,7 @@
     <packaging>jar</packaging>
 
     <name>WoSBlock</name>
-    <description>High-performance skyblock systems plugin scaffold.</description>
+    <description>High-performance survival rpg island systems plugin scaffold.</description>
 
     <properties>
         <java.version>21</java.version>

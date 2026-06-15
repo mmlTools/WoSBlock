@@ -1,6 +1,6 @@
 # WoSBlock
 
-High-performance Paper island plugin scaffold for multiplayer skyblock-style servers.
+High-performance Paper island plugin scaffold for multiplayer wosblock-style servers.
 
 ## Current Features
 
@@ -74,7 +74,7 @@ storage-type: mysql
 mysql:
   database: "wosblock"
   jdbc-url: "jdbc:mysql://localhost:3306/wosblock?useSSL=false&serverTimezone=UTC"
-  username: "skyblock"
+  username: "wosblock"
   password: "change-me"
 ```
 

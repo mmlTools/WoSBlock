@@ -3,7 +3,7 @@ version: '0.1.0'
 main: com.wosblock.WoSBlockPlugin
 api-version: '1.21'
 author: WoSBlock
-description: High-performance skyblock systems plugin scaffold.
+description: High-performance survival rpg island systems plugin scaffold.
 softdepend:
   - Vault
 commands:
@@ -14,7 +14,7 @@ commands:
     description: Auction House command.
     usage: /ah sell <price>
   hud:
-    description: Toggle the SkyBlock HUD.
+    description: Toggle the WoSBlock HUD.
     usage: /hud toggle
   questie:
     description: Toggle the Questie quest log.
