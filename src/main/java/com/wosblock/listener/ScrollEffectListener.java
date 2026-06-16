@@ -6,12 +6,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.Chest;
-import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Ageable;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -21,8 +18,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 public final class ScrollEffectListener implements Listener {
@@ -105,24 +100,6 @@ public final class ScrollEffectListener implements Listener {
                 }
             }
         }
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onHopperMove(InventoryMoveItemEvent event) {
-        if (!(event.getDestination().getHolder() instanceof Hopper hopper)) {
-            return;
-        }
-        Location chestLocation = scrollService.linkedChest(hopper.getBlock().getLocation());
-        if (chestLocation == null || !(chestLocation.getBlock().getState() instanceof Chest chest)) {
-            return;
-        }
-        Inventory inventory = chest.getInventory();
-        ItemStack moved = event.getItem().clone();
-        if (!inventory.addItem(moved).isEmpty()) {
-            return;
-        }
-        event.setCancelled(true);
-        event.getSource().removeItem(event.getItem());
     }
 
     private void giveOrDrop(Player player, Collection<ItemStack> drops) {

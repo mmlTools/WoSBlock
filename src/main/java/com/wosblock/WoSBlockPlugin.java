@@ -2,7 +2,6 @@ package com.wosblock;
 
 import com.wosblock.auction.AuctionHouseService;
 import com.wosblock.automation.CompactorService;
-import com.wosblock.automation.HopperFilterService;
 import com.wosblock.automation.VoidRecoveryService;
 import com.wosblock.economy.BalanceService;
 import com.wosblock.fishing.FishingLootManager;
@@ -81,13 +80,13 @@ public final class WoSBlockPlugin extends JavaPlugin {
     private ItemFactory itemFactory;
     private TrophyService trophyService;
     private CompactorService compactorService;
-    private HopperFilterService hopperFilterService;
     private VoidRecoveryService voidRecoveryService;
     private HudService hudService;
     private BoundaryService boundaryService;
     private InventoryContextService inventoryContextService;
     private MarketInfoService marketInfoService;
     private MarketTooltipService marketTooltipService;
+    private AutomationListener automationListener;
     private final Map<String, FileConfiguration> extraConfigs = new ConcurrentHashMap<>();
 
     @Override
@@ -113,6 +112,9 @@ public final class WoSBlockPlugin extends JavaPlugin {
         }
         if (boundaryService != null) {
             boundaryService.stop();
+        }
+        if (automationListener != null) {
+            automationListener.stop();
         }
         if (storage != null) {
             storage.close();
@@ -144,7 +146,6 @@ public final class WoSBlockPlugin extends JavaPlugin {
         craftingRecipeService.registerRecipes();
         trophyService = new TrophyService(this);
         compactorService = new CompactorService();
-        hopperFilterService = new HopperFilterService();
         voidRecoveryService = new VoidRecoveryService(this, islandService);
         voidRecoveryService.start();
         hudService = new HudService(this, islandService, balanceService, questService);
@@ -183,7 +184,9 @@ public final class WoSBlockPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CustomEnchantListener(this, customEnchantService), this);
         getServer().getPluginManager().registerEvents(new CustomEnchantEffectListener(this, customEnchantService, islandService), this);
         getServer().getPluginManager().registerEvents(new TrophyListener(trophyService, islandService), this);
-        getServer().getPluginManager().registerEvents(new AutomationListener(this, compactorService, hopperFilterService, islandService), this);
+        automationListener = new AutomationListener(this, compactorService, islandService);
+        automationListener.start();
+        getServer().getPluginManager().registerEvents(automationListener, this);
         getServer().getPluginManager().registerEvents(new VoidFallListener(islandService, scrollService), this);
         getServer().getPluginManager().registerEvents(new MarketTooltipListener(this, islandService, marketTooltipService), this);
         getServer().getPluginManager().registerEvents(new InventoryContextListener(inventoryContextService), this);
@@ -246,6 +249,9 @@ public final class WoSBlockPlugin extends JavaPlugin {
             }
             if (boundaryService != null) {
                 boundaryService.stop();
+            }
+            if (automationListener != null) {
+                automationListener.stop();
             }
             if (storage != null) {
                 storage.close();

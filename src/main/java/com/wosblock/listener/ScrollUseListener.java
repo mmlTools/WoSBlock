@@ -20,8 +20,7 @@ public final class ScrollUseListener implements Listener {
             return;
         }
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            if (scrollService.handlePlatformSelection(event.getPlayer(), event.getClickedBlock(), false)
-                || scrollService.handleHopperLinkSelection(event.getPlayer(), event.getClickedBlock())) {
+            if (scrollService.handlePlatformSelection(event.getPlayer(), event.getClickedBlock(), false)) {
                 event.setCancelled(true);
                 return;
             }

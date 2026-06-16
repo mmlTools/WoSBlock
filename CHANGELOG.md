@@ -1,5 +1,64 @@
 # WoSBlock Changelog
 
+## 0.1.8 - In Development
+
+### Fixed
+
+- Filter hopper signs now block non-matching manual inventory insertion through shift-click, cursor placement, hotbar swap, and drag actions.
+
+## 0.1.7 - In Development
+
+### Fixed
+
+- Filter hopper signs now block item entities picked up from the world, not only items moved in by another inventory.
+- Filter sign parsing now ignores automation status lines such as `Filter enabled` when looking for a second-line item argument.
+- Documented that hoppers can combine `/filter` and `/sender` signs.
+
+## 0.1.6 - In Development
+
+### Added
+
+- Writing `/filter` without an item ID now uses the item in the player's main hand, consumes one, and writes the resolved item ID onto the sign.
+
+## 0.1.5 - In Development
+
+### Added
+
+- Automation signs now write a second-line confirmation when created: `Sorting enabled`, `Filter enabled`, `Sender enabled`, or `Receiver enabled`.
+- Sign confirmation preserves a second line that already contains another automation command.
+
+## 0.1.4 - In Development
+
+### Fixed
+
+- Wireless sender hoppers now continue through multiple occupied hopper slots during one scan, so bursts of incoming items do not leave later slots stuck behind the first moved stack.
+
+## 0.1.3 - In Development
+
+### Fixed
+
+- Fixed wireless sender hopper duplication by transferring from the fresh live hopper block state instead of repeatedly reading a scanned tile snapshot.
+- Wireless hopper transfers now remove exactly the number of items accepted by the receiver chest, including partial-stack transfers.
+
+## 0.1.2 - In Development
+
+### Fixed
+
+- Wireless `/sender <custom_code>` hoppers now actively drain into matching `/receiver <custom_code>` chests instead of relying on vanilla hopper output events.
+- Automation signs can now contain multiple command lines, so one chest can be both `/sortable` and `/receiver <custom_code>`.
+- Receiver chests can also use multiple nearby signs for separate automation roles.
+
+## 0.1.1 - In Development
+
+### Changed
+
+- Replaced temporary chest sort and hopper filter UI buttons with sign-based automation.
+- Sortable chests now use a nearby `/sortable` sign.
+- Filter hoppers now use a nearby `/filter <itemid>` sign.
+- Wireless hopper routing now uses a nearby `/sender <custom_code>` sign on the hopper and a matching `/receiver <custom_code>` sign on the destination chest.
+- The Hopper Wireless Link scroll now points players to the sign setup instead of starting the old right-click linking flow.
+- Updated README and site automation docs for the new sign commands.
+
 ## 0.1.0 - In Development
 
 ### Renamed

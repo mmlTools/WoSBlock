@@ -17,9 +17,7 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.Chest;
 import org.bukkit.block.CreatureSpawner;
-import org.bukkit.block.Hopper;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -41,11 +39,8 @@ public final class ScrollService {
     private final Map<UUID, Long> merchantDiscountUntil = new ConcurrentHashMap<>();
     private final Map<UUID, Long> trophyBoosterUntil = new ConcurrentHashMap<>();
     private final Map<UUID, Long> platformBuilderUntil = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> hopperLinkUntil = new ConcurrentHashMap<>();
     private final Map<UUID, Block> platformFirstPoints = new ConcurrentHashMap<>();
-    private final Map<UUID, Location> hopperLinkChests = new ConcurrentHashMap<>();
     private final Map<String, Long> fertilizerChunks = new ConcurrentHashMap<>();
-    private final Map<Location, WirelessLink> hopperLinks = new ConcurrentHashMap<>();
 
     public ScrollService(WoSBlockPlugin plugin, IslandService islandService, CobblestoneGeneratorManager generatorManager, CustomItemKeys keys) {
         this.plugin = plugin;
@@ -81,7 +76,7 @@ public final class ScrollService {
             case "feed-heal" -> feedAndHeal(player);
             case "haste-speed" -> hasteSpeed(player);
             case "magnet" -> timed(player, magnetUntil, "magnet", "Magnet enabled");
-            case "hopper-wireless-link" -> activateHopperLink(player);
+            case "hopper-wireless-link" -> explainHopperSigns(player);
             case "chunk-fertilizer" -> fertilizeChunk(player);
             case "mob-spawner-booster" -> boostSpawner(player);
             case "expresso-mining" -> timed(player, expressoUntil, "expresso-mining", "Expresso mining enabled");
@@ -129,36 +124,6 @@ public final class ScrollService {
         return true;
     }
 
-    public boolean handleHopperLinkSelection(Player player, Block block) {
-        if (!active(hopperLinkUntil, player.getUniqueId()) || block == null) {
-            return false;
-        }
-        IslandData island = islandService.islandAt(block.getLocation()).orElse(null);
-        if (island == null || !islandService.isOwnerOrTrusted(player, island)) {
-            player.sendMessage("Link containers on your island.");
-            return true;
-        }
-        if (block.getState() instanceof Chest) {
-            hopperLinkChests.put(player.getUniqueId(), block.getLocation());
-            player.sendMessage("Linked chest selected. Right-click a hopper.");
-            return true;
-        }
-        if (block.getState() instanceof Hopper) {
-            Location chest = hopperLinkChests.remove(player.getUniqueId());
-            if (chest == null) {
-                player.sendMessage("Right-click the destination chest first.");
-                return true;
-            }
-            int seconds = duration("hopper-wireless-link", 7200);
-            hopperLinks.put(block.getLocation(), new WirelessLink(chest, System.currentTimeMillis() + seconds * 1000L));
-            hopperLinkUntil.remove(player.getUniqueId());
-            player.sendMessage("Hopper wirelessly linked for " + seconds + " seconds.");
-            return true;
-        }
-        player.sendMessage("Right-click a chest, then a hopper.");
-        return true;
-    }
-
     public boolean hasVoidFallProtection(Player player) {
         return active(voidFallProtectionUntil, player.getUniqueId());
     }
@@ -191,15 +156,6 @@ public final class ScrollService {
         return fertilizerChunks.getOrDefault(chunkKey(chunk), 0L) > System.currentTimeMillis();
     }
 
-    public Location linkedChest(Location hopper) {
-        WirelessLink link = hopperLinks.get(hopper);
-        if (link == null || link.expiresAt() <= System.currentTimeMillis()) {
-            hopperLinks.remove(hopper);
-            return null;
-        }
-        return link.chest();
-    }
-
     public double merchantDiscountMultiplier(Player player) {
         return hasMerchantDiscount(player) ? 1.0 - plugin.extraConfig("scrolls.yml").getDouble("scrolls.merchant-discount.discount", 0.15) : 1.0;
     }
@@ -211,11 +167,9 @@ public final class ScrollService {
         return true;
     }
 
-    private boolean activateHopperLink(Player player) {
-        int seconds = duration("hopper-wireless-link", 7200);
-        hopperLinkUntil.put(player.getUniqueId(), System.currentTimeMillis() + seconds * 1000L);
-        player.sendMessage("Hopper link mode enabled for " + seconds + " seconds. Right-click a chest, then a hopper.");
-        return true;
+    private boolean explainHopperSigns(Player player) {
+        player.sendMessage("Wireless hoppers use signs now: place /sender <custom_code> beside the hopper and /receiver <custom_code> beside the destination chest.");
+        return false;
     }
 
     private boolean timed(Player player, Map<UUID, Long> map, String id, String message) {
@@ -458,8 +412,5 @@ public final class ScrollService {
             builder.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
         }
         return builder.toString();
-    }
-
-    private record WirelessLink(Location chest, long expiresAt) {
     }
 }

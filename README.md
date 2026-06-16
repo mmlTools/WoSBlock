@@ -18,7 +18,7 @@ High-performance Paper island plugin scaffold for multiplayer wosblock-style ser
 - Per-world inventory contexts so normal-world and island inventories do not mix.
 - `/is clear` removes the island plus island-bound player data: island-world balance, quest progress/completions, island inventory context, Auction House listings, and void recovery cache.
 - O(1) cached cobblestone generator weight tables and configurable mining XP per ore.
-- Custom fishing loot tables, 20 configured scrolls, 20 stackable custom enchant books, trophies, material compactor, hopper filter UI, chest sorting buttons, void item recovery, and island waypoints.
+- Custom fishing loot tables, 20 configured scrolls, 20 stackable custom enchant books, trophies, material compactor, sign-based hopper filters, sign-based sortable chests, sign-based wireless hopper routing, void item recovery, and island waypoints.
 - Island HUD and Questie displays only appear in island context.
 - Per-player border display and directional island expansion scrolls.
 
@@ -31,13 +31,13 @@ mvn clean package
 The shaded plugin jar is produced at:
 
 ```text
-target/wosblock-0.1.0.jar
+target/wosblock-0.1.8.jar
 ```
 
 ## Installation
 
 1. Build the jar.
-2. Copy `target/wosblock-0.1.0.jar` into your Paper server `plugins/` folder.
+2. Copy `target/wosblock-0.1.8.jar` into your Paper server `plugins/` folder.
 3. Restart the server.
 4. Edit generated configs under `plugins/WoSBlock/`.
 5. Restart or run `/wosblock reload`.
@@ -134,6 +134,19 @@ plugins/WoSBlock/world-inventories/
 /hud toggle
 /questie toggle
 ```
+
+## Automation Signs
+
+Place a sign directly beside, above, or below the target container.
+
+```text
+/sortable
+/filter <itemid>
+/sender <custom_code>
+/receiver <custom_code>
+```
+
+`/sortable` goes next to a chest and sorts it when trusted island members open it. `/filter <itemid>` goes next to a hopper and only allows that material through, for example `/filter cobblestone`. Players can also write just `/filter` while holding the desired item; the sign fills in the item ID and consumes one held item. A wireless hopper uses `/sender <custom_code>` beside the hopper and `/receiver <custom_code>` beside the destination chest. Sender hoppers drain into matching receivers even when they are not pointing at a vanilla output container. Hoppers can use both `/filter` and `/sender` signs; non-matching dropped or moved items are blocked from the filter hopper and non-matching stored items are not sent wirelessly. A chest can use multiple signs, or multiple command lines on one sign, such as `/sortable` plus `/receiver ore`. New automation signs write an enabled status on the second line when that line is not already another command.
 
 ## Admin Commands
 
